@@ -1,0 +1,9 @@
+#ifndef DEFINES_h
+#define DEFINES_h
+
+#define SAMPLES_PER_BLOCK 512
+#define DMA_BUF_SIZE SAMPLES_PER_BLOCK*2
+
+#define UART_BUF_SIZE  SAMPLES_PER_BLOCK*4
+
+#endif // DEFINES_h
