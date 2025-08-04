@@ -1,4 +1,5 @@
 #include "LoRa.h"
+#include "MainMCU.h"
 
 LoRa::LoRa(UART* uart) : uart(uart) {}
 
@@ -168,6 +169,8 @@ LoRaStatus LoRa::receiveData(uint16_t dataLen, uint8_t* dataBuffer) {
 }
 
 LoRaStatus LoRa::writeData(uint8_t* dataBuffer, uint16_t dataLen) {
+    if(dataBuffer == NULL || dataLen == 0) return LORA_ERR_INVALID_PARAM;
+    
     // Write data to the UART.
     HAL_StatusTypeDef status = HAL_UART_Transmit(uart->hUART, dataBuffer, dataLen, 1000);
     // While the LoRa module is transmitting the AUX pin remains LOW.
@@ -175,6 +178,54 @@ LoRaStatus LoRa::writeData(uint8_t* dataBuffer, uint16_t dataLen) {
     if(status == HAL_TIMEOUT) return LoRaStatus::LORA_ERR_TIMEOUT;
     else if(status == HAL_ERROR) return LoRaStatus::LORA_ERR_UNKNOWN;
     return auxStatus; 
+}
+
+LoRaStatus LoRa::writeDataDMA(uint8_t* dataBuffer, uint16_t dataLen) {
+    if(dataBuffer == NULL || dataLen == 0) return LORA_ERR_INVALID_PARAM;
+
+    uint16_t initialPacketLen = dataLen;
+    if(currentlySendingThroughDMA) {
+        // If there is pending data to be sent, append to the buffer.
+        dmaBuf.pushN(dataBuffer, dataLen);
+    }else {
+        if(dataLen > LORA_MAX_MSG_LEN) {
+            // Data will have to be split and sent sequentially.
+        	initialPacketLen = LORA_MAX_MSG_LEN;
+    
+            dmaBuf.pushN(dataBuffer + LORA_MAX_MSG_LEN, dataLen - LORA_MAX_MSG_LEN);
+            currentlySendingThroughDMA = 1;
+        }
+
+        // Send the initial packet.
+        if(!uart->sendToUART(dataBuffer, initialPacketLen)) {
+            return LORA_ERR_UNKNOWN;
+        }
+    }
+
+    return LORA_SUCCESS;
+}
+
+void LoRa::auxPinISR() {
+    if(!currentlySendingThroughDMA) return;
+
+    if(!uart->txSend && !uart->TXBuffer.locked) {
+        // UART has finished sending the previous packet through DMA.
+        uint8_t msg[LORA_MAX_MSG_LEN];
+        uint16_t len;
+        if(dmaBuf.len > LORA_MAX_MSG_LEN) {
+            len = LORA_MAX_MSG_LEN;
+        }else {
+            len = dmaBuf.len;
+            // Finished sending the last packet!
+            currentlySendingThroughDMA = 0;
+        }
+
+        dmaBuf.popN(len, msg);
+        uart->sendToUART(msg, len);
+    }
+    
+    // If the UART is still sending data, then it is expected that the AUX pin will have to rise 
+    // once the UART ends its transmission, therefore calling this interrupt again.
 }
 
 LoRaStatus LoRa::waitAUXPin(uint32_t timeout_ms) {

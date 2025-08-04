@@ -108,7 +108,8 @@ uint8_t Comms::sendMessage(uint16_t addrs, uint8_t* data, uint16_t dataLen) {
     memcpy(outBuffer+COMMS_HEADER_LEN, data, dataLen);
     memcpy(outBuffer+COMMS_HEADER_LEN+dataLen, &crc, COMMS_CRC_LEN);
 
-    lora.writeData(outBuffer, header.length);
+    lora.setMode(LoRaMode::MODE_0_NORMAL);
+    lora.writeDataDMA(outBuffer, header.length);
 
     free(outBuffer);
 

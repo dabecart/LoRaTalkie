@@ -41,6 +41,22 @@ void UART::update() {
     }
 }
 
+uint8_t UART::sendToUART(uint8_t* pucMessage, uint16_t usMessageLength) {
+    // Push the data to the array.
+    uint8_t readyToSend = TXBuffer.pushN(pucMessage, usMessageLength);
+    if(readyToSend) txSend = 1;
+    return readyToSend;
+}
+
+uint8_t UART::setBaudrate(uint32_t baudrate) {
+    uint8_t ret = 1;
+    ret &= HAL_UART_DeInit(hUART) == HAL_OK;
+    hUART->Init.BaudRate = baudrate;
+    ret &= HAL_UART_Init(hUART) == HAL_OK;
+    attachDMAToSerialPort();
+    return ret;
+}
+
 void UART::attachDMAToSerialPort() {
     // This function takes the buffer directly as a circular one. It won't update the indices of the 
     // struct, so that will be left upon us. 
@@ -50,13 +66,6 @@ void UART::attachDMAToSerialPort() {
     // __HAL_DMA_DISABLE_IT(pstUART->rxDMA, DMA_IT_TC);
     // // This disables an interruption that triggers when the buffer gets filled to half its size.
     // __HAL_DMA_DISABLE_IT(pstUART->rxDMA, DMA_IT_HT);
-}
-
-uint8_t UART::sendToUART(uint8_t* pucMessage, uint16_t usMessageLength) {
-    // Push the data to the array.
-    uint8_t readyToSend = TXBuffer.pushN(pucMessage, usMessageLength);
-    if(readyToSend) txSend = 1;
-    return readyToSend;
 }
 
 /***************************************************************************************************

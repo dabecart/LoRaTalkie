@@ -54,11 +54,14 @@ class MainMCU {
     TIM_HandleTypeDef* htim2;
 
     uint16_t dmaBuf[DMA_BUF_SIZE];
-    CircularBuffer<uint8_t, 4096> samplesBuf;
+    CircularBuffer<uint8_t, UART_BUF_SIZE> samplesBuf;
 
     uint8_t currentlyTX = 0;
     // Points to where the DMA currently is. If <0, discard the value.
     int8_t dmaIndex = -1;
+    // When currentlyTX = 0, when more than one message has been received, start sending to the 
+    // speaker.
+    uint8_t startSendingToSpeaker = 0;
 };
 
 extern MainMCU* mcu;

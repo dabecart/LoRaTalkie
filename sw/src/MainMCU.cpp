@@ -30,16 +30,16 @@ void MainMCU::init() {
     // that is, when reading registers, is always 9600 8N1). Also set the air data rate. 
     LoRaConfiguration config = comms.lora.currentConfig;
     config.speed.uartBaudRate = UART_BPS_115200;
-    config.speed.airDataRate = AIR_DATA_RATE_110_38k4;
+    config.speed.airDataRate = AIR_DATA_RATE_111_62k5;
+    config.channel = 18;
+    config.transmissionMode.enableRSSI = RSSI_DISABLED;
     // Apply the configuration.
     if(comms.lora.writeConfigurationRegisters(config, 1) != LORA_SUCCESS) {
         Error_Handler();
     }
 
-    // Now set the MCU baudrate.
-    HAL_UART_DeInit(uartLoRa.hUART);
-    uartLoRa.hUART->Init.BaudRate = 115200;
-    if (HAL_UART_Init(uartLoRa.hUART) != HAL_OK){
+    // Now set the MCU's UART baudrate.
+    if(!uartLoRa.setBaudrate(115200)) {
         Error_Handler();
     }
 
@@ -55,16 +55,26 @@ void MainMCU::mainLoop() {
 
     if(currentlyTX) {
         // Check if there's enough data from the ADC ready to be sent to the LoRa.
-        if(samplesBuf.len >= DMA_BUF_SIZE) {
-            uint8_t msgOut[DMA_BUF_SIZE];
-            samplesBuf.popN(DMA_BUF_SIZE, msgOut);
-            comms.sendMessage(COMMS_MULTICAST_ID, msgOut, DMA_BUF_SIZE);
+        if(samplesBuf.len >= MESSAGE_SIZE) {
+            HAL_GPIO_WritePin(TEST_LED_GPIO_Port, TEST_LED_Pin, GPIO_PIN_SET);
+            uint8_t msgOut[MESSAGE_SIZE];
+            samplesBuf.popN(MESSAGE_SIZE, msgOut);
+            comms.sendMessage(COMMS_MULTICAST_ID, msgOut, MESSAGE_SIZE);
+            HAL_GPIO_WritePin(TEST_LED_GPIO_Port, TEST_LED_Pin, GPIO_PIN_RESET);
         }
     }else {
         // Check if there's data received from the LoRa.
         CommsMsg msg;
         if(comms.getNextMessage(&msg)) {
+            HAL_GPIO_WritePin(TEST_LED_GPIO_Port, TEST_LED_Pin, GPIO_PIN_SET);
             samplesBuf.pushN(msg.payload, msg.header.getPayloadLength());
+            
+            // Start sending to the speaker when more than one message has been received.
+            if(!startSendingToSpeaker) {
+            	startSendingToSpeaker = samplesBuf.len > MESSAGE_SIZE;
+            }
+            
+            HAL_GPIO_WritePin(TEST_LED_GPIO_Port, TEST_LED_Pin, GPIO_PIN_RESET);
         }
     }
 
@@ -77,6 +87,7 @@ void MainMCU::changeWalkieState(uint8_t startDoingTX) {
     HAL_DAC_Stop_DMA(hdac1, DAC_CHANNEL_1);
 
     currentlyTX = startDoingTX;
+    startSendingToSpeaker = 0;
 
     // Reset the buffers.
     memset(dmaBuf, 0, sizeof(dmaBuf));
@@ -86,6 +97,8 @@ void MainMCU::changeWalkieState(uint8_t startDoingTX) {
     if(currentlyTX) {
         // Until the DMA fills either half of the buf, this number shall remain negative.
         dmaIndex = -1;
+        // Mute the speaker.
+        HAL_DAC_SetValue(hdac1, DAC_CHANNEL_1, DAC_ALIGN_8B_R, 0);
         // Start ADC to memory.
         HAL_ADC_Start_DMA(hadc1, (uint32_t*) dmaBuf, DMA_BUF_SIZE);
     }else {
@@ -142,8 +155,16 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
 }
 
 void HAL_DAC_ConvHalfCpltCallbackCh1(DAC_HandleTypeDef* hdac) {
-    // Wait until there are more than two blocks of data.
-    if(mcu->samplesBuf.len <= DMA_BUF_SIZE) return;
+    // Wait until there are enough bytes for a block of data.
+    if(!mcu->startSendingToSpeaker || mcu->samplesBuf.len < SAMPLES_PER_BLOCK) {
+        // If not, clear the block.
+        // This gives a warning, but it's ok.
+        memset(mcu->dmaBuf, 0, SAMPLES_PER_BLOCK*sizeof(uint16_t));
+        // There's no more data to send to the speaker.
+        mcu->startSendingToSpeaker = 0;
+    }
+
+    if(!mcu->startSendingToSpeaker) return;
 
     // DMA has ended the first half, and has passed to the second half. Put data on the first half.
     uint8_t poppedBuf[SAMPLES_PER_BLOCK];
@@ -159,8 +180,14 @@ void HAL_DAC_ConvHalfCpltCallbackCh1(DAC_HandleTypeDef* hdac) {
 }
 
 void HAL_DAC_ConvCpltCallbackCh1(DAC_HandleTypeDef* hdac) {
-    // Wait until there are more than two blocks of data.
-    if(mcu->samplesBuf.len <= DMA_BUF_SIZE) return;
+    // Wait until there are enough bytes for a block of data.
+    if(!mcu->startSendingToSpeaker || mcu->samplesBuf.len < SAMPLES_PER_BLOCK) {
+        // If not, clear the block.
+        memset(mcu->dmaBuf + SAMPLES_PER_BLOCK, 0, SAMPLES_PER_BLOCK*sizeof(uint16_t));
+        // There's no more data to send to the speaker.
+        mcu->startSendingToSpeaker = 0;
+        return;
+    }
 
     // DMA has ended the second half, and has returned to the first half. Put data on the second 
     // half.
@@ -174,4 +201,8 @@ void HAL_DAC_ConvCpltCallbackCh1(DAC_HandleTypeDef* hdac) {
     }
     
     mcu->dmaIndex = 0;
+}
+
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
+    if(GPIO_Pin == LORA_AUX_Pin) mcu->comms.lora.auxPinISR();
 }

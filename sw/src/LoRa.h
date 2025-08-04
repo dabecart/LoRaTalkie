@@ -9,7 +9,8 @@
 
 #define LORA_BROADCAST_ADDRESS 255
 #define LORA_HEADER_LEN 3   // command, startAddress, length
-#define LORA_MAX_MSG_LEN 200
+// Cannot put the maximum (200) it hangs the device.
+#define LORA_MAX_MSG_LEN 190
 
 /**
  * @brief Return field for LoRa functions. 
@@ -270,6 +271,8 @@ class LoRa {
      */
     LoRaStatus setMode(LoRaMode mode);
 
+    void auxPinISR();
+
     private:
     /**
      * @brief Receive data from the LoRa module.
@@ -288,6 +291,15 @@ class LoRa {
      * @return LoRaStatus 
      */
     LoRaStatus writeData(uint8_t* dataBuffer, uint16_t dataLen);
+
+    /**
+     * @brief Send data to the LoRa module using DMA.
+     * 
+     * @param dataBuffer. Where the data is stored.
+     * @param dataLen. Number of bytes inside the data buffer.
+     * @return LoRaStatus 
+     */
+    LoRaStatus writeDataDMA(uint8_t* dataBuffer, uint16_t dataLen);
 
     /**
      * @brief The AUX pin is set to 0 when the device is busy. This function waits for the LoRa 
@@ -312,6 +324,10 @@ class LoRa {
     private:
     UART* uart;
     LoRaMode currentMode = LoRaMode::MODE_INIT;
+
+    CircularBuffer<uint8_t, UART_BUF_SIZE> dmaBuf;
+    uint8_t currentlySendingThroughDMA = 0;
+
     public:
     LoRaConfiguration currentConfig;
 };

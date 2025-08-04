@@ -56,6 +56,14 @@ class UART {
     uint8_t sendToUART(uint8_t* pucMessage, uint16_t usMessageLength);
 
     /**
+     * @brief Set the baudrate of the serial port during runtime.
+     * 
+     * @param baudrate The new baudrate.
+     * @return uint8_t 1 if successful.
+     */
+    uint8_t setBaudrate(uint32_t baudrate);
+
+    /**
      * @brief Links a DMA to the circular buffers of the serial port.
      */
     void attachDMAToSerialPort();
@@ -66,6 +74,7 @@ class UART {
     UART_HandleTypeDef*                      hUART;
     DMA_HandleTypeDef*                       rxDMA;
     DMA_HandleTypeDef*                       txDMA;
+
     uint8_t                                  txSend = 0;    // 1 when a message is ready to be sent
     uint8_t                                  rxSend = 0;    // 1 when a message has been received
 };

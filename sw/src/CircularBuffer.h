@@ -21,7 +21,9 @@ class CircularBuffer {
     /**
      * @brief Construct a new Circular Buffer object
      */
-    CircularBuffer() {}
+    CircularBuffer() {
+        empty();
+    }
 
     /**
      * @brief Destroy the Circular Buffer object
