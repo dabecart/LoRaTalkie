@@ -59,15 +59,15 @@ void Error_Handler(void);
 /* Private defines -----------------------------------------------------------*/
 #define START_TX_Pin GPIO_PIN_13
 #define START_TX_GPIO_Port GPIOC
+#define LORA_M0_Pin GPIO_PIN_14
+#define LORA_M0_GPIO_Port GPIOB
+#define LORA_M1_Pin GPIO_PIN_15
+#define LORA_M1_GPIO_Port GPIOB
 #define TEST_LED_Pin GPIO_PIN_6
 #define TEST_LED_GPIO_Port GPIOC
 #define LORA_AUX_Pin GPIO_PIN_8
 #define LORA_AUX_GPIO_Port GPIOA
 #define LORA_AUX_EXTI_IRQn EXTI9_5_IRQn
-#define LORA_M0_Pin GPIO_PIN_11
-#define LORA_M0_GPIO_Port GPIOA
-#define LORA_M1_Pin GPIO_PIN_12
-#define LORA_M1_GPIO_Port GPIOA
 
 /* USER CODE BEGIN Private defines */
 
