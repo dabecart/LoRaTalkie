@@ -6,6 +6,9 @@
 #include "Comms.h"
 #include "Defines.h"
 
+#include "usb_device.h"
+#include "usbd_cdc_if.h"
+
 class MainMCU {
     public:
     /**
@@ -54,6 +57,7 @@ class MainMCU {
     TIM_HandleTypeDef* htim2;
 
     uint16_t dmaBuf[DMA_BUF_SIZE];
+    uint8_t msgOut[MESSAGE_SIZE];
     CircularBuffer<uint8_t, UART_BUF_SIZE> samplesBuf;
 
     uint8_t currentlyTX = 0;

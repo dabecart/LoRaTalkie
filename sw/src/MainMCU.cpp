@@ -57,9 +57,11 @@ void MainMCU::mainLoop() {
         // Check if there's enough data from the ADC ready to be sent to the LoRa.
         if(samplesBuf.len >= MESSAGE_SIZE) {
             HAL_GPIO_WritePin(TEST_LED_GPIO_Port, TEST_LED_Pin, GPIO_PIN_SET);
-            uint8_t msgOut[MESSAGE_SIZE];
             samplesBuf.popN(MESSAGE_SIZE, msgOut);
             comms.sendMessage(COMMS_MULTICAST_ID, msgOut, MESSAGE_SIZE);
+            
+            CDC_Transmit_FS(msgOut, MESSAGE_SIZE);
+            
             HAL_GPIO_WritePin(TEST_LED_GPIO_Port, TEST_LED_Pin, GPIO_PIN_RESET);
         }
     }else {
@@ -73,7 +75,7 @@ void MainMCU::mainLoop() {
             if(!startSendingToSpeaker) {
             	startSendingToSpeaker = samplesBuf.len > MESSAGE_SIZE;
             }
-            
+
             HAL_GPIO_WritePin(TEST_LED_GPIO_Port, TEST_LED_Pin, GPIO_PIN_RESET);
         }
     }
