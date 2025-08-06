@@ -1,0 +1,3 @@
+[submodule "sw/lib/adpcm-xq_STM32"]
+	path = sw/lib/adpcm-xq_STM32
+	url = https://github.com/dabecart/adpcm-xq_STM32

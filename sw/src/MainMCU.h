@@ -6,6 +6,8 @@
 #include "Comms.h"
 #include "Defines.h"
 
+#include "adpcm.h"
+
 class MainMCU {
     public:
     /**
